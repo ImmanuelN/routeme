@@ -1,0 +1,35 @@
+{
+  "name": "routeme",
+  "version": "1.0.0",
+  "description": "A cross-platform mobile navigation app with real-time location tracking and turn-by-turn directions",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImmanuelN/routeme.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ImmanuelN/routeme/issues"
+  },
+  "homepage": "https://github.com/ImmanuelN/routeme#readme",
+  "dependencies": {
+    "expo": "^54.0.18",
+    "expo-location": "^19.0.7",
+    "expo-status-bar": "^3.0.8",
+    "react": "^19.2.0",
+    "react-native": "^0.82.1",
+    "react-native-dotenv": "^3.4.11",
+    "react-native-maps": "^1.26.17",
+    "react-native-maps-directions": "^1.9.0"
+  }
+}
