@@ -20,21 +20,22 @@ import { on } from '../utils/eventBus';
  */
 const MapViewContainer = ({ userLocation, onMapPress, children }) => {
   const mapRef = useRef(null);
-  const { destination, routeCoordinates } = useLocation();
-  const { updateDestination } = useLocation();
+  const { destination, routeCoordinates, isJourneyActive, updateDestination } = useLocation();
   const [favorites, setFavorites] = useState([]);
   const [bearingDeg, setBearingDeg] = useState(0);
   const rotationAnim = useRef(new Animated.Value(0)).current;
+  const [followUser, setFollowUser] = useState(true);
   // Animate map to user location when it changes
   useEffect(() => {
-    if (userLocation && mapRef.current) {
-      try {
-        mapRef.current.animateToRegion(userLocation, 1000);
-      } catch (e) {
-        // ignore if map not ready
-      }
+    // Only auto-center when followUser is enabled or when a journey is active.
+    if (!userLocation || !mapRef.current) return;
+    if (!followUser && !isJourneyActive) return;
+    try {
+      mapRef.current.animateToRegion(userLocation, 1000);
+    } catch (e) {
+      // ignore if map not ready
     }
-  }, [userLocation]);
+  }, [userLocation, followUser, isJourneyActive]);
 
   // Load favorites and subscribe to changes so map updates live
   useEffect(() => {
@@ -118,11 +119,14 @@ const MapViewContainer = ({ userLocation, onMapPress, children }) => {
       if (heading !== undefined && heading !== null) {
         targetDeg = ((bearingDeg - heading) % 360 + 360) % 360;
       }
-      // Animate to targetDeg smoothly
+      // Animate to targetDeg smoothly. Stop any running animation first to avoid piling up timers.
+      try {
+        rotationAnim.stopAnimation();
+      } catch (e) {}
       Animated.timing(rotationAnim, {
         toValue: targetDeg,
         duration: 300,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     } catch (e) {
       // ignore
@@ -148,7 +152,14 @@ const MapViewContainer = ({ userLocation, onMapPress, children }) => {
         showsMyLocationButton={false}
         showsCompass={true}
         showsTraffic={false}
-        onPress={onMapPress}
+        onPress={(e) => {
+          // user interacted with the map; stop following until they recenter
+          setFollowUser(false);
+          if (onMapPress) onMapPress(e);
+        }}
+        onPanDrag={() => {
+          setFollowUser(false);
+        }}
         onPoiClick={async (e) => {
           try {
             const evt = e && e.nativeEvent;
@@ -297,6 +308,8 @@ const MapViewContainer = ({ userLocation, onMapPress, children }) => {
         style={styles.recenterBtn}
         onPress={() => {
           if (mapRef.current && userLocation) {
+            // re-enable follow mode and move the map to the user location
+            setFollowUser(true);
             mapRef.current.animateToRegion(
               {
                 latitude: userLocation.latitude,
