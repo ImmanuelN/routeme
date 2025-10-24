@@ -17,7 +17,7 @@ const SplashScreen = ({ onFinish, duration = 1200 }) => {
   return (
     <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
       <View style={styles.inner}>
-        <Image source={require('../assets/route-logo.png')} style={styles.logoImage} resizeMode="contain" />
+  <Image source={require('../../assets/route-logo.png')} style={styles.logoImage} resizeMode="contain" />
         <Text style={styles.subtitle}>Find. Navigate. Explore.</Text>
       </View>
     </Animated.View>
