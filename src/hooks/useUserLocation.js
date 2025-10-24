@@ -13,6 +13,7 @@ import * as Location from 'expo-location';
  */
 const useUserLocation = () => {
   const [location, setLocation] = useState(null);
+  const [heading, setHeading] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,6 +60,18 @@ const useUserLocation = () => {
           }
         );
 
+        // Subscribe to device heading (if supported)
+        try {
+          const headingSub = await Location.watchHeadingAsync((h) => {
+            const deg = (h && (h.trueHeading || h.magHeading || h.heading)) || null;
+            setHeading(deg);
+          });
+          // attach to subscription for cleanup
+          if (locationSubscription) locationSubscription._headingSub = headingSub;
+        } catch (e) {
+          // ignore if heading not supported
+        }
+
         setLoading(false);
       } catch (error) {
         setErrorMsg('Error fetching location: ' + error.message);
@@ -71,7 +84,8 @@ const useUserLocation = () => {
     // Cleanup subscription on unmount
     return () => {
       if (locationSubscription) {
-        locationSubscription.remove();
+        try { locationSubscription.remove(); } catch (e) {}
+        try { if (locationSubscription._headingSub && typeof locationSubscription._headingSub.remove === 'function') locationSubscription._headingSub.remove(); } catch (e) {}
       }
     };
   }, []);
@@ -99,7 +113,7 @@ const useUserLocation = () => {
     }
   };
 
-  return { location, errorMsg, loading, refreshLocation };
+  return { location, errorMsg, loading, refreshLocation, heading };
 };
 
 export default useUserLocation;

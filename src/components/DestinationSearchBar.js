@@ -37,9 +37,16 @@ const DestinationSearchBar = ({ onPlaceSelect, onOpenHistory }) => {
       const items = await loadSearchHistory();
       if (mounted) setRecent((items || []).slice(0, 3));
     });
+    // clear search when a saved search is selected elsewhere (history modal or map)
+    const unsubSelect = onEvent('searchSelected', () => {
+      if (!mounted) return;
+      setSearchText('');
+      setPredictions([]);
+    });
     return () => {
       mounted = false;
       try { unsub(); } catch (e) {}
+      try { unsubSelect(); } catch (e) {}
     };
   }, []);
 
@@ -55,9 +62,10 @@ const DestinationSearchBar = ({ onPlaceSelect, onOpenHistory }) => {
     setIsSearching(true);
 
     try {
+      // Restrict autocomplete predictions to Namibia (country code: NA)
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
         input
-      )}&key=${GOOGLE_MAPS_API_KEY}`;
+      )}&components=country:na&key=${GOOGLE_MAPS_API_KEY}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -112,6 +120,7 @@ const DestinationSearchBar = ({ onPlaceSelect, onOpenHistory }) => {
    * Handle place selection
    */
   const handlePlaceSelect = async (prediction) => {
+    console.log('🔔 [DestinationSearchBar] autocomplete selection:', prediction.description, 'place_id=', prediction.place_id);
     setSearchText(prediction.description);
     setPredictions([]);
     Keyboard.dismiss();
@@ -130,6 +139,9 @@ const DestinationSearchBar = ({ onPlaceSelect, onOpenHistory }) => {
         });
   const items = await loadSearchHistory();
   setRecent((items || []).slice(0, 3));
+        // Clear the search input after selection
+        setSearchText('');
+        setPredictions([]);
       } catch (e) {
         console.warn('⚠️ [DestinationSearchBar] saveRecent failed', e?.message || e);
       }
@@ -181,14 +193,17 @@ const DestinationSearchBar = ({ onPlaceSelect, onOpenHistory }) => {
               <TouchableOpacity
                 style={styles.predictionItem}
                 onPress={async () => {
+                  console.log('🔔 [DestinationSearchBar] recent selection:', item.name || item.address, item);
                   Keyboard.dismiss();
-                  setSearchText(item.name || item.address || '');
+                  // clear search bar when selecting a recent item
+                  setSearchText('');
                   setPredictions([]);
                   if (onPlaceSelect) onPlaceSelect({
                     latitude: item.latitude,
                     longitude: item.longitude,
                     name: item.name,
                     address: item.address,
+                    favorite: item.favorite,
                   });
                   // refresh timestamp in storage
                   try {

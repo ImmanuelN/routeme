@@ -111,7 +111,7 @@ const LocationDetailsSheet = ({ onStartJourney }) => {
           activeOpacity={0.8}
         >
           <Text style={styles.startButtonText}>
-            {routeInfo ? '🚗 Start Journey' : 'Calculating...'}
+            {routeInfo ? 'Start Journey' : 'Calculating...'}
           </Text>
         </TouchableOpacity>
 

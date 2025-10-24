@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocation } from '../context/LocationContext';
+import { toggleFavorite } from '../utils/storage';
+import { Ionicons } from '@expo/vector-icons';
 import { formatDistance, formatDuration } from '../utils/mapHelpers';
 
 const { height } = Dimensions.get('window');
@@ -23,7 +25,7 @@ const { height } = Dimensions.get('window');
  */
 const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose }) => {
   const insets = useSafeAreaInsets();
-  const { destination, routeInfo, isLoadingRoute, clearDestination, isJourneyActive } = useLocation();
+  const { destination, routeInfo, isLoadingRoute, clearDestination, isJourneyActive, setDestinationMeta } = useLocation();
   const [visible, setVisible] = useState(false);
   const [slideAnim] = useState(new Animated.Value(height));
 
@@ -36,23 +38,32 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
   }, [isJourneyActive, forceVisible]);
 
   useEffect(() => {
-    if (destination && !isJourneyActive) {
-      console.log('✅ [Modal] Showing for:', destination.name);
+    // Show if there is a destination and either we are not in a journey OR parent forces visibility
+    if (destination && (!isJourneyActive || forceVisible)) {
+      console.log('✅ [Modal] Showing for:', destination?.name, 'forceVisible=', forceVisible, 'isJourneyActive=', isJourneyActive);
+      console.log('🔍 [Modal] about to set visible=true, slideAnim current=', slideAnim && slideAnim.__getValue ? slideAnim.__getValue() : 'n/a');
       setVisible(true);
+      // Use JS driver for now to avoid native-driver edge cases on some devices
       Animated.spring(slideAnim, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: false,
         tension: 65,
         friction: 11,
-      }).start();
+      }).start(() => {
+        console.log('🔍 [Modal] spring animation completed, slideAnim=', slideAnim && slideAnim.__getValue ? slideAnim.__getValue() : 'n/a');
+      });
     } else {
+      console.log('🔍 [Modal] hiding (destination present?)', !!destination, 'forceVisible=', forceVisible, 'isJourneyActive=', isJourneyActive);
       Animated.timing(slideAnim, {
         toValue: height,
         duration: 250,
-        useNativeDriver: true,
-      }).start(() => setVisible(false));
+        useNativeDriver: false,
+      }).start(() => {
+        console.log('🔍 [Modal] hide animation completed, setting visible=false');
+        setVisible(false);
+      });
     }
-  }, [destination, isJourneyActive]);
+  }, [destination, isJourneyActive, forceVisible]);
 
   /**
    * Close the modal.
@@ -63,7 +74,7 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
     Animated.timing(slideAnim, {
       toValue: height,
       duration: 250,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start(() => {
       setVisible(false);
       if (shouldClear) {
@@ -82,6 +93,21 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
   const handleStartJourney = () => {
     if (onStartJourney) {
       onStartJourney();
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!destination) return;
+    try {
+      // Prefer matching by placeId when available, fallback to lat/lng
+      const matcher = destination.placeId
+        ? { placeId: destination.placeId }
+        : { latitude: destination.latitude, longitude: destination.longitude };
+      await toggleFavorite(matcher);
+      // update context destination meta so UI reflects change immediately
+      if (setDestinationMeta) setDestinationMeta({ favorite: !destination.favorite });
+    } catch (e) {
+      console.warn('⚠️ [LocationDetailsModal] toggleFavorite failed', e?.message || e);
     }
   };
 
@@ -118,7 +144,7 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <Text style={styles.locationIcon}>📍</Text>
+                <Ionicons name="location-outline" size={28} color="#4A90E2" style={{ marginRight: 12 }} />
                 <View style={styles.headerTextContainer}>
                   <Text style={styles.locationName} numberOfLines={1}>
                     {destination?.name || 'Selected Location'}
@@ -130,9 +156,14 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
                   )}
                 </View>
               </View>
-              <TouchableOpacity style={styles.closeButton} onPress={() => handleClose(true)}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity style={[styles.favoriteButton, destination?.favorite && styles.favoriteActive]} onPress={handleToggleFavorite}>
+                  <Ionicons name={destination?.favorite ? 'star' : 'star-outline'} size={18} color={destination?.favorite ? '#F6C90E' : '#6B7280'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.closeButton} onPress={() => handleClose(true)}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Route Info */}
@@ -165,7 +196,7 @@ const LocationDetailsModal = ({ onStartJourney, forceVisible = false, onClose })
               activeOpacity={0.8}
             >
               <Text style={styles.startButtonText}>
-                {routeInfo ? '🚗 Start Journey' : 'Calculating...'}
+                {routeInfo ? 'Start Journey' : 'Calculating...'}
               </Text>
             </TouchableOpacity>
 
@@ -276,6 +307,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#6B7280',
     fontWeight: 'bold',
+  },
+  favoriteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  favoriteActive: {
+    backgroundColor: '#FFF4D9',
   },
   loadingContainer: {
     padding: 20,

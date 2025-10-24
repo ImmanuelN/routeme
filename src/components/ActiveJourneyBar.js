@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocation } from '../context/LocationContext';
-import { formatDistance, formatDuration } from '../utils/mapHelpers';
+import { Ionicons } from '@expo/vector-icons';
+import { formatDistance, formatDuration, calculateDistance, remainingDistanceAlongRoute } from '../utils/mapHelpers';
 
 /**
  * ActiveJourneyBar Component
@@ -16,7 +19,44 @@ import { formatDistance, formatDuration } from '../utils/mapHelpers';
  */
 const ActiveJourneyBar = ({ onExpand, onCancel }) => {
   const insets = useSafeAreaInsets();
-  const { routeInfo, isJourneyActive } = useLocation();
+  const { routeInfo, isJourneyActive, destination, currentLocation, routeCoordinates } = useLocation();
+
+  // Animated percent value and helpers must be declared unconditionally to preserve hook order
+  const animatedPercent = useRef(new Animated.Value(0)).current;
+
+  const computePercent = () => {
+    try {
+      const totalKm = routeInfo?.distance || 0; // in km
+      if (!currentLocation || !destination || totalKm <= 0) return 0;
+
+      // Prefer route-based remaining distance
+      let remainingKm = null;
+      if (routeCoordinates && routeCoordinates.length > 0) {
+        remainingKm = remainingDistanceAlongRoute(currentLocation, routeCoordinates);
+      }
+
+      // Fallback to straight-line
+      if (remainingKm === null || Number.isNaN(remainingKm)) {
+        remainingKm = calculateDistance(currentLocation, { latitude: destination.latitude, longitude: destination.longitude });
+      }
+
+      const prog = (totalKm - remainingKm) / totalKm;
+      const pct = Math.max(0, Math.min(100, Math.round(prog * 100)));
+      return pct;
+    } catch (e) {
+      return 0;
+    }
+  };
+  // Update animation when location/route changes — declared unconditionally to keep Hooks order stable
+  useEffect(() => {
+    const pct = computePercent();
+    Animated.timing(animatedPercent, {
+      toValue: pct,
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [currentLocation?.latitude, currentLocation?.longitude, destination?.latitude, destination?.longitude, routeInfo?.distance, routeCoordinates && routeCoordinates.length]);
 
   if (!isJourneyActive || !routeInfo) {
     return null;
@@ -24,7 +64,9 @@ const ActiveJourneyBar = ({ onExpand, onCancel }) => {
 
   // Get the first step as current instruction
   const currentInstruction = routeInfo.steps?.[0]?.instruction || 'Continue on route';
-  const nextDistance = routeInfo.steps?.[0]?.distance || '';
+  // Show total route distance (keep consistent with LocationDetailsModal)
+  const totalDistanceKm = routeInfo?.distance || 0;
+  const distanceLabel = formatDistance(totalDistanceKm);
 
   return (
     <View style={[styles.container, { bottom: insets.bottom + 20 }]}>
@@ -35,13 +77,27 @@ const ActiveJourneyBar = ({ onExpand, onCancel }) => {
       >
         <View style={styles.leftContent}>
           <View style={styles.instructionContainer}>
-            <Text style={styles.distanceText}>{nextDistance}</Text>
+            {destination?.name && (
+              <Text style={styles.destinationText}>{destination.name} </Text>
+            )}
+            {destination?.favorite && (
+              <Ionicons name="star" size={16} color="#F6C90E" style={{ marginBottom: 6 }} />
+            )}
+            <Text style={styles.distanceText}>{distanceLabel}</Text>
             <Text style={styles.instructionText} numberOfLines={1}>
               {currentInstruction}
             </Text>
           </View>
-          <View style={styles.progressBar}>
-            <View style={styles.progressFill} />
+          <View style={styles.progressBarRow}>
+            <View style={styles.progressBar}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  { width: animatedPercent.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) },
+                ]}
+              />
+            </View>
+            <Text style={styles.percentText}>{Math.round(animatedPercent && animatedPercent.__getValue ? animatedPercent.__getValue() : 0)}%</Text>
           </View>
         </View>
 
@@ -120,6 +176,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     borderRadius: 2,
     overflow: 'hidden',
+  },
+  progressBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  percentText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '600',
+    minWidth: 36,
+    textAlign: 'right',
   },
   progressFill: {
     height: '100%',

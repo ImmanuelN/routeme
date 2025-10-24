@@ -167,3 +167,58 @@ export const decodePolyline = (encoded) => {
 
   return poly;
 };
+
+/**
+ * Estimate remaining distance along a route polyline from the current location.
+ * Strategy: find the nearest point on the polyline (by point sampling) and
+ * sum the distances from that point to the end of the route. This is an
+ * approximation but much more accurate than straight-line to the destination.
+ *
+ * @param {Object} currentLocation - { latitude, longitude }
+ * @param {Array} routeCoordinates - Array of { latitude, longitude }
+ * @returns {number|null} Remaining distance in kilometers, or null if unavailable
+ */
+export const remainingDistanceAlongRoute = (currentLocation, routeCoordinates) => {
+  if (!currentLocation || !routeCoordinates || routeCoordinates.length === 0) return null;
+
+  // Find the nearest sampled point on the route
+  let minIdx = 0;
+  let minDist = Infinity;
+  for (let i = 0; i < routeCoordinates.length; i++) {
+    const d = calculateDistance(currentLocation, routeCoordinates[i]);
+    if (d < minDist) {
+      minDist = d;
+      minIdx = i;
+    }
+  }
+
+  // Remaining distance = distance from current to nearest point + sum of remaining segments
+  let remaining = minDist;
+  for (let i = minIdx; i < routeCoordinates.length - 1; i++) {
+    remaining += calculateDistance(routeCoordinates[i], routeCoordinates[i + 1]);
+  }
+
+  return remaining;
+};
+
+/**
+ * Calculate initial bearing (forward azimuth) from coord1 to coord2 in degrees
+ * @param {Object} from - { latitude, longitude }
+ * @param {Object} to - { latitude, longitude }
+ * @returns {number} Bearing in degrees (0-360), or null if input invalid
+ */
+export const getBearing = (from, to) => {
+  if (!from || !to) return null;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const lat1 = toRad(from.latitude);
+  const lat2 = toRad(to.latitude);
+  const dLon = toRad(to.longitude - from.longitude);
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  let brng = toDeg(Math.atan2(y, x));
+  brng = (brng + 360) % 360;
+  return brng;
+};

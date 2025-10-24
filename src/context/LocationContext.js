@@ -67,6 +67,17 @@ export const LocationProvider = ({ children }) => {
   };
 
   /**
+   * Merge arbitrary fields into the current destination (useful for toggling favorite flag)
+   * @param {Object} updates - partial destination fields to merge
+   */
+  const setDestinationMeta = (updates) => {
+    setDestination((prev) => {
+      if (!prev) return { ...updates };
+      return { ...prev, ...updates };
+    });
+  };
+
+  /**
    * Clear destination and route information
    */
   const clearDestination = () => {
@@ -118,6 +129,7 @@ export const LocationProvider = ({ children }) => {
     setIsLoadingRoute,
     startJourney,
     stopJourney,
+    setDestinationMeta,
   };
 
   return (

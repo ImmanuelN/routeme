@@ -14,6 +14,7 @@ import {
 import AppButton from './AppButton';
 import NamePlaceModal from './NamePlaceModal';
 import { loadSearchHistory, removeSearchEntry, saveSearchEntry, clearSearchHistory, toggleFavorite } from '../utils/storage';
+import { emit } from '../utils/eventBus';
 import { Ionicons } from '@expo/vector-icons';
 import { on as onEvent, off as offEvent } from '../utils/eventBus';
 
@@ -34,9 +35,9 @@ const SearchHistoryModal = ({ visible, onClose, onSelect }) => {
     let mounted = true;
     if (visible) {
       refresh();
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true }).start();
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false }).start();
     } else {
-      Animated.timing(slideAnim, { toValue: height, duration: 180, useNativeDriver: true }).start();
+      Animated.timing(slideAnim, { toValue: height, duration: 180, useNativeDriver: false }).start();
     }
 
     const unsub = onEvent('searchHistoryChanged', async () => {
@@ -99,7 +100,10 @@ const SearchHistoryModal = ({ visible, onClose, onSelect }) => {
       <TouchableOpacity
         style={styles.itemLeft}
         onPress={() => {
-          onSelect && onSelect({ latitude: item.latitude, longitude: item.longitude, name: item.name, address: item.address });
+          console.log('🔔 [SearchHistoryModal] onSelect item:', item.name || item.address, item);
+          // Emit a global event so the search bar can clear itself when a history item is chosen
+          try { emit('searchSelected', item); } catch (e) {}
+          onSelect && onSelect({ latitude: item.latitude, longitude: item.longitude, name: item.name, address: item.address, favorite: item.favorite });
           onClose && onClose();
         }}
       >
@@ -130,7 +134,7 @@ const SearchHistoryModal = ({ visible, onClose, onSelect }) => {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Ionicons name="book" size={26} color="#4A90E2" style={{ marginRight: 12 }} />
-              <Text style={styles.headerTitle}>Saved Searches</Text>
+              <Text style={styles.headerTitle}>Searches</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TouchableOpacity

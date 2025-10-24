@@ -20,7 +20,7 @@ import { GOOGLE_MAPS_API_KEY } from '@env';
  * Handles user location tracking, destination selection, and route display
  */
 const HomeScreen = () => {
-  const { location, errorMsg, loading } = useUserLocation();
+  const { location, heading, errorMsg, loading } = useUserLocation();
   const { 
     updateCurrentLocation, 
     updateDestination, 
@@ -35,6 +35,7 @@ const HomeScreen = () => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCoords, setPendingCoords] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // history modal is opened via a button on the search bar now
 
@@ -75,6 +76,7 @@ const HomeScreen = () => {
    */
   const handlePlaceSelect = (place) => {
     console.log('🔍 [HomeScreen] Place selected:', place.name);
+    console.log('🔍 [HomeScreen] place object:', place);
     // If name is missing, prompt to name the place
     if (!place.name || place.name.trim().length === 0) {
       setPendingCoords({ latitude: place.latitude, longitude: place.longitude });
@@ -89,6 +91,11 @@ const HomeScreen = () => {
       address: place.address,
       timestamp: Date.now(), // Add timestamp to force re-render even for same location
     });
+
+    console.log('🔍 [HomeScreen] updateDestination called, forcing details modal to show');
+
+    // Ensure details modal appears after selecting from search/history
+    setShowDetailsModal(true);
 
     // Save to recent searches
     (async () => {
@@ -111,6 +118,8 @@ const HomeScreen = () => {
   const handleStartJourney = () => {
     console.log('🚀 [HomeScreen] Starting journey');
     startJourney();
+    // If details modal was forced open, clear that flag when journey starts so modal hides
+    setShowDetailsModal(false);
     // Don't show alert, just start the journey silently
   };
 
@@ -184,7 +193,7 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       {/* Map View */}
-      <MapViewContainer userLocation={location} onMapPress={handleMapPress}>
+  <MapViewContainer userLocation={location ? { ...location, heading } : null} onMapPress={handleMapPress}>
         {/* Route Directions Overlay */}
         {origin && dest && <RouteDirections origin={origin} destination={dest} />}
       </MapViewContainer>
@@ -194,10 +203,12 @@ const HomeScreen = () => {
         <DestinationSearchBar onPlaceSelect={handlePlaceSelect} onOpenHistory={() => setShowHistoryModal(true)} />
       )}
 
-      {/* Location Details Modal - Only when not in journey */}
-      {!isJourneyActive && (
-        <LocationDetailsModal onStartJourney={handleStartJourney} />
-      )}
+      {/* Location Details Modal - shown when destination exists or forced by selection */}
+      <LocationDetailsModal
+        onStartJourney={handleStartJourney}
+        forceVisible={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+      />
 
       {/* Active Journey Bar - Only during journey */}
       <ActiveJourneyBar 
@@ -228,9 +239,11 @@ const HomeScreen = () => {
             longitude: entry.longitude,
             name: entry.name,
             address: entry.address,
+            favorite: entry.favorite,
             timestamp: Date.now(),
           });
           setShowHistoryModal(false);
+          setShowDetailsModal(true);
         }}
       />
 
@@ -256,7 +269,8 @@ const HomeScreen = () => {
                 // Attempt reverse geocoding to capture full formatted address
                 let address = '';
                 try {
-                  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${entry.latitude},${entry.longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+                  // Restrict reverse geocoding to Namibia to keep saved addresses local
+                  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${entry.latitude},${entry.longitude}&components=country:NA&key=${GOOGLE_MAPS_API_KEY}`;
                   const res = await fetch(url);
                   const data = await res.json();
                   if (data.status === 'OK' && data.results && data.results.length > 0) {
