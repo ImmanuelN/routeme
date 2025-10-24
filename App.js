@@ -16,11 +16,12 @@ try {
   console.warn('Could not set RoutemeAsyncStorage global:', e?.message || e);
 }
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LocationProvider } from './src/context/LocationContext';
 import HomeScreen from './src/screens/HomeScreen';
+import SplashScreen from './src/components/SplashScreen';
 
 /**
  * RouteMe App
@@ -30,10 +31,19 @@ import HomeScreen from './src/screens/HomeScreen';
  * @returns {React.Component} App component
  */
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Keep splash for a short moment (component will also auto-hide itself via Animated)
+    const t = setTimeout(() => setShowSplash(false), 1400);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <SafeAreaProvider>
       <LocationProvider>
         <HomeScreen />
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} duration={1200} />}
       </LocationProvider>
     </SafeAreaProvider>
   );

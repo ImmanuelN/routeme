@@ -6,8 +6,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#4A90E2"
+      "backgroundColor": "#4A90E2",
+      "image": "./assets/route-logo.png",
+      "resizeMode": "contain"
     },
+    "icon": "./assets/route-logo.png",
     "assetBundlePatterns": [
       "**/*"
     ],
