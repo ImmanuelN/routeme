@@ -41,6 +41,9 @@ export const LocationProvider = ({ children }) => {
   // Loading state for route calculation
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
+  // Journey state (whether navigation has started)
+  const [isJourneyActive, setIsJourneyActive] = useState(false);
+
   /**
    * Update current user location
    * @param {Object} location - Location object with latitude and longitude
@@ -54,19 +57,40 @@ export const LocationProvider = ({ children }) => {
    * @param {Object} dest - Destination object with latitude and longitude
    */
   const updateDestination = (dest) => {
+    console.log('🎯 [Context] New destination:', dest.name);
     setDestination(dest);
     // Clear previous route when new destination is set
     setRouteCoordinates([]);
     setRouteInfo(null);
+    // Set loading to true immediately when new destination is selected
+    setIsLoadingRoute(true);
   };
 
   /**
    * Clear destination and route information
    */
   const clearDestination = () => {
+    console.log('🧹 [Context] Clearing destination');
     setDestination(null);
     setRouteCoordinates([]);
     setRouteInfo(null);
+    setIsJourneyActive(false);
+  };
+
+  /**
+   * Start the journey/navigation
+   */
+  const startJourney = () => {
+    console.log('🚀 [Context] Journey started');
+    setIsJourneyActive(true);
+  };
+
+  /**
+   * Stop the journey/navigation
+   */
+  const stopJourney = () => {
+    console.log('🛑 [Context] Journey stopped');
+    setIsJourneyActive(false);
   };
 
   /**
@@ -75,6 +99,7 @@ export const LocationProvider = ({ children }) => {
    * @param {Array} coordinates - Array of coordinate objects for the route
    */
   const updateRoute = (info, coordinates) => {
+    console.log('🗺️ [Context] Route updated:', info.distance.toFixed(1) + 'km,', info.duration.toFixed(0) + 'min');
     setRouteInfo(info);
     setRouteCoordinates(coordinates);
   };
@@ -85,11 +110,14 @@ export const LocationProvider = ({ children }) => {
     routeInfo,
     routeCoordinates,
     isLoadingRoute,
+    isJourneyActive,
     updateCurrentLocation,
     updateDestination,
     clearDestination,
     updateRoute,
     setIsLoadingRoute,
+    startJourney,
+    stopJourney,
   };
 
   return (

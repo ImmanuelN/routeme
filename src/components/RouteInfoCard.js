@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocation } from '../context/LocationContext';
 import { formatDistance, formatDuration } from '../utils/mapHelpers';
 
@@ -18,13 +18,14 @@ import { formatDistance, formatDuration } from '../utils/mapHelpers';
 const RouteInfoCard = () => {
   const { routeInfo, destination, clearDestination, isLoadingRoute } =
     useLocation();
+  const insets = useSafeAreaInsets();
 
   if (!destination && !isLoadingRoute) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       {isLoadingRoute ? (
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Calculating route...</Text>
